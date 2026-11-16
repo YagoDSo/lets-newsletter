@@ -216,6 +216,7 @@ Análise do gasto de tokens do pipeline Claude API, com o objetivo de reduzir cu
 
 - Tags SemVer anotadas (`vX.Y.Z`) no commit de merge de cada PR de código que entra no `main`, com Release no GitHub (`gh release create vX.Y.Z --generate-notes`). `feat:` sobe o meio (v2.1.0), `fix:` sobe o último (v2.0.2), mudança que quebra banco ou formato do envio sobe o primeiro.
 - O `version` do `package.json` acompanha a tag: subir no próprio PR (`npm version X.Y.Z --no-git-tag-version`).
+- Toda versão nova ganha uma entrada no topo do `CHANGELOG.md` no próprio PR, e a Release no GitHub leva o título `vX.Y.Z · <descrição curta>`.
 - Commits semanais do bot (`chore: WF-0x ... edição N`, imagens) **nunca** ganham tag: são dados, não código.
 - Publicar tag/Release mexe no repositório público: pedir o ok do Yago antes.
 - **Não fazer merge no `main` enquanto o pipeline da semana estiver rodando** (segunda, da madrugada até o preview): o bot faz `git push` do banco sem `pull` e o push é recusado se o `main` andou no meio, derrubando a etapa.
