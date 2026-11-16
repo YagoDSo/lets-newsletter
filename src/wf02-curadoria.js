@@ -450,7 +450,8 @@ function distribuirArtigos(validadosPorLista) {
 
 // ─── Orquestração ────────────────────────────────────────────
 async function main() {
-  requireEnv(['ANTHROPIC_API_KEY']);
+  // Na assinatura (padrão) não há chave: quem autentica é o Claude Code logado.
+  if (config.claudeBackend === 'api') requireEnv(['ANTHROPIC_API_KEY']);
 
   // "Ler Artigos Coletados" + "Definir Edição": max(edicao) = a que o WF-01 gravou.
   const { rows } = await lerAba(config.abaArtigos);
