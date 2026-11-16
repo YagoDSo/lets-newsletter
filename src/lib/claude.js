@@ -94,6 +94,7 @@ async function viaLote(params) {
 // Sonnet 5.5 respondeu a curadoria com dois JSONs e comentários entre eles,
 // apesar do "Retorne APENAS JSON" no prompt, e a edição 22 falhou no parse.
 export async function chamarClaude(prompt, { maxTokens = 4000, model = config.claudeModel, schema } = {}) {
+  if (config.claudeBackend === 'assinatura') return viaAssinatura(prompt, { model, schema });
   const params = {
     model,
     max_tokens: maxTokens,
@@ -116,4 +117,111 @@ export async function chamarClaude(prompt, { maxTokens = 4000, model = config.cl
     .join('');
   if (!texto) throw new Error('Resposta sem conteúdo');
   return texto;
+}
+
+// ─── Assinatura (nov/2026) ────────────────────────────────────
+// Em vez da API, chama o Claude Code instalado na máquina em modo não
+// interativo (`claude -p`). Ele usa a conta logada nele (`claude auth login`
+// com a conta da assinatura), então não gasta crédito de API. O prompt vai
+// pelo stdin (é grande demais para a linha de comando do Windows) e o
+// --json-schema dá a mesma garantia de formato da saída estruturada da API.
+//
+// Cuidados:
+// - ANTHROPIC_API_KEY sai do ambiente do processo filho: com ela presente, o
+//   Claude Code cobra da API em vez da assinatura.
+// - Sem ferramentas, sem configurações de usuário/projeto (hooks, MCP,
+//   CLAUDE.md) e sem salvar sessão: é só uma pergunta e uma resposta.
+// - Roda numa pasta temporária vazia, para não carregar nenhum CLAUDE.md.
+// - O nome do modelo vai como está em config (ex.: claude-sonnet-5-5); o
+//   Claude Code aceita os mesmos ids da API.
+
+// Ambiente do filho: o do processo, sem as variáveis que desviariam a cobrança
+// ou a rota (chave de API, proxy da sessão do app desktop).
+export function ambienteAssinatura(env = process.env) {
+  const limpo = { ...env };
+  for (const k of Object.keys(limpo)) {
+    if (/^(ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_BASE_URL|CLAUDECODE|CLAUDE_CODE_.*)$/.test(k)) delete limpo[k];
+  }
+  return limpo;
+}
+
+export function argumentosAssinatura({ model, schema }) {
+  const args = [
+    '-p',
+    '--output-format', 'json',
+    '--model', model,
+    '--tools', '',
+    '--setting-sources', '',
+    '--strict-mcp-config',
+    '--no-session-persistence',
+  ];
+  if (schema) args.push('--json-schema', JSON.stringify(schema));
+  return args;
+}
+
+// Lê a saída JSON do `claude -p` e devolve o texto (com schema, o JSON já
+// serializado). Erro de conta/crédito/login vira exceção com a mensagem dele.
+export function textoDaSaidaCli(stdout) {
+  let r;
+  try {
+    r = JSON.parse(stdout.trim().split(/\r?\n/).filter(Boolean).pop());
+  } catch {
+    throw new Error(`Saída do claude -p não é JSON: ${stdout.slice(0, 300)}`);
+  }
+  if (r.is_error || r.subtype !== 'success') {
+    const msg = r.result || r.subtype || 'erro sem mensagem';
+    const dica = /log ?in|credit|crédito/i.test(msg)
+      ? ' (o Claude Code precisa estar logado com a conta da assinatura: rode `claude auth login`)'
+      : '';
+    throw new Error(`claude -p falhou: ${msg}${dica}`);
+  }
+  if (r.structured_output !== undefined && r.structured_output !== null) {
+    return typeof r.structured_output === 'string' ? r.structured_output : JSON.stringify(r.structured_output);
+  }
+  if (!r.result) throw new Error('Resposta do claude -p sem conteúdo');
+  return r.result;
+}
+
+async function viaAssinatura(prompt, { model, schema }) {
+  const { spawn } = await import('node:child_process');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'lets-insights-claude-'));
+  const inicio = Date.now();
+  try {
+    const stdout = await new Promise((ok, falha) => {
+      const filho = spawn(config.claudeCli, argumentosAssinatura({ model, schema }), {
+        cwd: pasta,
+        env: ambienteAssinatura(),
+        // Sem shell: com shell o argumento vazio de --tools some e o JSON do
+        // schema quebra nas aspas. No Windows o instalador põe claude.exe no PATH.
+        windowsHide: true,
+      });
+      let out = '';
+      let err = '';
+      const timer = setTimeout(() => {
+        filho.kill();
+        falha(new Error(`claude -p passou de ${config.claudeCliTimeoutMin} min sem responder`));
+      }, config.claudeCliTimeoutMin * 60e3);
+      filho.stdout.on('data', (d) => { out += d; });
+      filho.stderr.on('data', (d) => { err += d; });
+      filho.on('error', (e) => {
+        clearTimeout(timer);
+        falha(new Error(`Não consegui rodar "${config.claudeCli}" (${e.message}). O Claude Code está instalado e no PATH?`));
+      });
+      filho.on('close', () => {
+        clearTimeout(timer);
+        // Mesmo com código de saída diferente de 0, a saída JSON traz o motivo.
+        if (out.trim()) ok(out);
+        else falha(new Error(`claude -p não devolveu nada. stderr: ${err.slice(0, 500)}`));
+      });
+      filho.stdin.end(prompt, 'utf8');
+    });
+    const texto = textoDaSaidaCli(stdout);
+    console.log(`  claude -p (${model}, assinatura) respondeu em ${Math.round((Date.now() - inicio) / 1000)}s.`);
+    return texto;
+  } finally {
+    fs.rmSync(pasta, { recursive: true, force: true });
+  }
 }

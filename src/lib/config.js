@@ -2,6 +2,17 @@ import 'dotenv/config';
 
 // Configuração central. Lê do .env (local) ou dos Secrets (GitHub Actions).
 export const config = {
+  // De onde vem o texto da IA (nov/2026, decisão do Yago: crédito de API
+  // virou gargalo). "assinatura" (padrão): chama o Claude Code instalado na
+  // máquina (`claude -p`), que usa a assinatura de quem está logado nele, sem
+  // crédito de API; o pipeline roda no computador do Yago (scripts/rodar-semana.ps1).
+  // "api": chamada direta à API com ANTHROPIC_API_KEY (reserva manual no
+  // GitHub Actions, para uma semana em que haja crédito).
+  claudeBackend: process.env.CLAUDE_BACKEND === 'api' ? 'api' : 'assinatura',
+  claudeCli: process.env.CLAUDE_CLI || 'claude',
+  // Teto por chamada do `claude -p` (a redação, a maior, leva 1-3 min).
+  claudeCliTimeoutMin: Number(process.env.CLAUDE_CLI_TIMEOUT_MIN) || 15,
+
   // Claude API
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   // out/2026: Sonnet 4.5 → Sonnet 5.5 (com raciocínio desligado, ver lib/claude.js).
