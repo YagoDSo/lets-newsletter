@@ -11,6 +11,22 @@ As tags de v1.0.0 a v2.0.0 foram criadas depois, em 09/11/2026. Por isso o `pack
 versões ainda diz 0.1.0 e as Releases delas aparecem publicadas nessa data. A data que vale é a do
 commit, que está abaixo.
 
+## v2.5.0 · 16/11/2026 · Assunto ancorado no artigo certo
+
+Revisão dos assuntos da edição 25 contra o guia de voz e o ICP. As instruções da redação passaram a:
+
+- escolher o artigo âncora do assunto antes de escrever: o de efeito mais direto pro leitor daquela
+  versão (nas versões de setor, uma notícia do setor, não necessariamente a primeira), com número
+  forte como desempate;
+- exigir assunto que se sustente sozinho, dizendo quem e o quê;
+- aceitar sigla só quando o leitor daquela versão a conhece;
+- citar no pré-header só artigos da própria versão;
+- fazer uma conferência final de 4 perguntas antes de responder.
+
+Teste com os artigos da edição 25: geral passou de "Eventos extremos expõem falta de plano" para
+"Michelin conecta gestão de pneus da frota", e Indústria de "Cummins investe em usinagem no Brasil"
+para "Fenatran reúne R$ 6 bi em investimentos".
+
 ## v2.4.0 · 16/11/2026 · Automotive Business e filtro mais preciso
 
 - Fonte nova: Automotive Business (indústria automotiva e fornecedores). O site não tem feed no

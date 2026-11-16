@@ -32,6 +32,8 @@ import { precisaRehospedar, baixarImagem } from './lib/rehost.js';
 import { verificarIntegridade, resumirMotivos, extrairTextoVisivel } from './lib/integridade.js';
 import { buscarPagina, buscarHTML } from './lib/paginas.js';
 import { extrairImagem, extrairImagemPost } from './lib/imagem.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const FALLBACK_BLOG_IMG =
   'https://cdn.prod.website-files.com/67d2cd7e700eb793f98a2e81/6a04acd2772388e00bdf5a8d_Gemini_Generated_Image_nmyoe6nmyoe6nmyo.png';
@@ -206,7 +208,10 @@ ${SEGMENTOS.map((s) => `POOL ${NOME_SEGMENTO[s].toUpperCase()} (lista "${s}"):\n
 
 function promptRedacao(artigosParaEscrever, versoes, blogRaw) {
   const descreverVersao = (v) => {
-    const itens = v.itens.map((it, i) => `${i + 1}. ${it.tipo === 'blog' ? 'destaque do blog' : `artigo id ${it.id}`}`).join('; ');
+    const brasil = new Set(v.idsBrasil || []);
+    const itens = v.itens
+      .map((it, i) => `${i + 1}. ${it.tipo === 'blog' ? 'destaque do blog' : `artigo id ${it.id}${brasil.has(it.id) ? ' (Brasil)' : ''}`}`)
+      .join('; ');
     return `- "${v.versao}" (${v.descricao}): ${itens}`;
   };
   return `Você é o redator-chefe da newsletter 'Let's Insights', uma publicação semanal B2B da Let's (gestão de frotas do Grupo Águia Branca) voltada para gestores de frota, coordenadores de campo, QSMS, engenheiros de campo e diretores de operações de empresas com frotas 4x4 em operação de campo (Engenharia/Geotecnia, Mineração, Meio Ambiente, Concessão de Rodovias, Obras/Montagem Industrial, Florestal/Celulose, Infraestrutura, Siderurgia).
@@ -249,7 +254,15 @@ Texto completo do artigo: ${blogRaw?.textoCompleto || blogRaw?.descricao || '(se
 
 Gere também, PARA CADA VERSÃO listada em VERSÕES abaixo, um título da edição e um pré-header:
 
-1. TÍTULO DA EDIÇÃO (titulo_edicao): uma manchete única. Na versão "geral", sobre o destaque mais forte da versão; nas versões de setor, a partir do PRIMEIRO artigo da versão (a notícia de abertura do setor). Escolha UMA das estruturas abaixo (A, B, ou a pergunta ancorada opcional) — a que render o gancho mais forte pro fato daquela versão especificamente, não sempre a mesma:
+1. TÍTULO DA EDIÇÃO (titulo_edicao): uma manchete única, sobre UM artigo da versão (o "artigo âncora").
+
+   ESCOLHA DO ARTIGO ÂNCORA (faça isso antes de escrever):
+   - Na versão "geral": entre os artigos externos da versão (não o blog), o de efeito mais direto na operação de campo do leitor (custo, disponibilidade de veículo, segurança, regra que muda a rotina).
+   - Nas versões de setor: entre as notícias DO SETOR da versão (não o blog e não as notícias "Brasil"), a de efeito mais direto no negócio ou na operação de quem trabalha naquele setor. Não precisa ser a primeira da lista. Empate: fique com a primeira.
+   - Nos dois casos, entre candidatos parecidos, prefira o que tem um número forte (valor, percentual, prazo, quantidade): "Fenatran concentra R$ 6 bi em investimentos" ganha de "Cummins investe em usinagem no Brasil".
+   - Notícia de bastidor de fornecedor (fábrica de peça, troca de executivo, prêmio, balanço de empresa sem efeito no cliente) só vira âncora se não houver outra opção.
+
+   Escolha UMA das estruturas abaixo (A, B, ou a pergunta ancorada opcional) — a que render o gancho mais forte pro fato do artigo âncora, não sempre a mesma:
 
    ESTRUTURA A — Afirmativa (padrão, use quando não houver uma reviravolta clara)
    - Máx 45 caracteres (o ponto ideal fica entre 30 e 42)
@@ -266,8 +279,12 @@ Gere também, PARA CADA VERSÃO listada em VERSÕES abaixo, um título da ediç�
    - NUNCA escreva "Let's Insights" em lugar nenhum do título: o sufixo da marca é acrescentado depois, em código
    - NUNCA escreva o nome do setor como rótulo ("Mineração: ...", "Edição Indústria"): o leitor não deve perceber que recebeu uma versão segmentada
    - Prefira âncora concreta a termo genérico: número, sigla, nome próprio ou percentual quando existir ("Lei 15.485", "BR-040", "biodiesel a 15%") ganham de "regulação" ou "combustível". Quando houver um número ou percentual forte disponível, ele deve ser o CENTRO da frase (o que o leitor lembra depois), não um detalhe posto de lado
+   - O título tem que se sustentar SOZINHO, sem o pré-header: diz QUEM (empresa, órgão, setor, obra) e O QUÊ. Ao encurtar, nunca corte o sujeito: "Eventos extremos expõem falta de plano" é proibido (falta de plano de quem?); o certo é "Mineração sem plano climático corre risco"
+   - Sigla ou nome de programa só se o leitor daquela versão conhece sem explicação (Reidi serve pra Engenharia; na versão geral, prefira dizer o que é)
    - Sem travessão, sem dois-pontos de rótulo ("Regulação: ..."), sem ponto final, sem aspas
-   - Formato errado: "Let's Insights · Biodiesel e compliance" (marca na frente) / "Regulação e custos" (genérico, sem fato) / "Novidades do setor de frotas" (vazio)
+   - Formato errado: "Let's Insights · Biodiesel e compliance" (marca na frente) / "Regulação e custos" (genérico, sem fato) / "Novidades do setor de frotas" (vazio) / "Eventos extremos expõem falta de plano" (sem sujeito)
+
+   CONFERÊNCIA FINAL de cada titulo_edicao, antes de responder: (1) lido sozinho, diz quem e o quê? (2) o artigo âncora é o de efeito mais direto pro leitor daquela versão? (3) se algum artigo da versão tem número forte, ele está no título ou há motivo claro pra não estar? (4) está dentro do limite de caracteres? Se alguma resposta for não, reescreva.
 
    OPCIONAL — pergunta ancorada ("por quê"), em vez de afirmação direta:
    - Só use se a pergunta for sobre um fato ESPECÍFICO daquela versão, nunca genérica ("Por que isso muda tudo?" é proibido — não diz nada que não sirva pra qualquer edição)
@@ -276,7 +293,7 @@ Gere também, PARA CADA VERSÃO listada em VERSÕES abaixo, um título da ediç�
    - Formato certo: "Por que a Lei 15.485 aperta prazo de motorista" / "Por que biodiesel a 15% derruba desempenho"
    - Formato errado: "Por que isso é importante?" / "Por que você precisa saber disso?" (suspense vazio, sem âncora)
 
-2. PRÉ-HEADER (pre_header, máx 90 caracteres, vira preview no inbox): complementa o título com os outros assuntos daquela versão. Não repita o título.
+2. PRÉ-HEADER (pre_header, máx 90 caracteres, vira preview no inbox): complementa o título com os outros assuntos daquela versão (os que não são o artigo âncora). Não repita o título. Cite SÓ artigos que estão naquela versão (confira a lista em VERSÕES): nunca mencione artigo de outra versão, nem para dizer que ficou de fora.
 
 Gere também, só para a versão "geral":
 
@@ -711,7 +728,7 @@ async function main() {
     ...SEGMENTOS.map((s) => {
       const [s1, s2] = segmentos[s];
       const itens = [s1, BLOG, s2, ...brasil].filter(Boolean);
-      return { versao: s, descricao: `clientes de ${NOME_SEGMENTO[s]}`, itens, segmento: s };
+      return { versao: s, descricao: `clientes de ${NOME_SEGMENTO[s]}`, itens, segmento: s, idsBrasil: brasil.map((b) => b.id) };
     }),
   ];
   const completas = composicoes.filter((c) => c.segmento === null || c.itens.length >= ITENS_VERSAO_SEGMENTADA);
@@ -829,7 +846,13 @@ async function main() {
   commitarBanco(`chore: WF-02 curadoria e redação edição ${edicaoAtual}`);
 }
 
-main().catch((e) => {
-  console.error('✗ WF-02 falhou:', e);
-  process.exit(1);
-});
+// Só roda quando chamado direto (node src/wf02-curadoria.js); importar o
+// arquivo, como no teste do prompt, não dispara o pipeline.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((e) => {
+    console.error('✗ WF-02 falhou:', e);
+    process.exit(1);
+  });
+}
+
+export { promptRedacao, schemaRedacao };
