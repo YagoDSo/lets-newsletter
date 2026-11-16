@@ -47,6 +47,12 @@ const FEEDS = [
   { url: 'https://logisticanobrasil.com.br/feed' },
   { url: 'https://ocarreteiro.com.br/feed/' },
   { url: 'https://cargapesada.com.br/feed/' },
+  // Indústria automotiva e fornecedores (nov/2026). O site público não tem
+  // feed; o RSS vem do WordPress por trás dele (painel.), e os links são
+  // reescritos para o endereço público em reescreverLink(). Sem dica de
+  // segmento: entra no pool da versão geral pelo filtro de frota, que barra
+  // carro de passeio e concessionária.
+  { url: 'https://painel.automotivebusiness.com.br/feed/', fonte: 'Automotive Business' },
 
   // ── News segmentada (out/2026, ver docs/plano-news-segmentada.md) ──
   // Cada feed abaixo foi validado em 22/10/2026 (200 + XML de RSS real + item
@@ -108,12 +114,21 @@ function corrigirDataBrasilMineral(str) {
   return `${aaaa}-${mm}-${dd}T${hh}:${min}:00`;
 }
 
+// O feed da Automotive Business sai do WordPress interno
+// (painel.automotivebusiness.com.br/<categoria>/<slug>/), que também serve a
+// página. O leitor tem que ir para o site público, onde toda matéria responde
+// em /noticias/<slug>, qualquer que seja a categoria (conferido em 16/11/2026).
+function reescreverLink(url) {
+  const m = String(url || '').match(/^https?:\/\/painel\.automotivebusiness\.com\.br\/(?:[^/?#]+\/)*([^/?#]+)\/?(?:[?#].*)?$/);
+  return m ? `https://www.automotivebusiness.com.br/noticias/${m[1]}` : url;
+}
+
 // ─── Nó "Padronizar Estrutura" ───────────────────────────────
 function padronizar(itens) {
   const validos = itens.filter((it) => it && it.title && it.link);
   const padronizados = validos.map((it) => {
     let fonte = 'Portal especializado';
-    const url = it.link || '';
+    const url = reescreverLink(it.link || '');
     if (url.includes('frotacia.com.br')) fonte = 'Frota&Cia';
     else if (url.includes('transportemoderno.com.br')) fonte = 'Transporte Moderno';
     else if (url.includes('diariodotransporte.com.br')) fonte = 'Diário do Transporte';
@@ -207,7 +222,15 @@ const PALAVRAS_ICP = [
     'siderurgia', 'siderúrgica', 'florestal', 'celulose e papel', 'engenharia de campo',
     'coordenador de campo', 'supervisor de obra', 'gestor de frota', 'coordenador de frota',
     'diretor de operações', 'gerente de contratos',
+    // Veículo de trabalho (nov/2026): a Fever (utilitário elétrico de 650 a
+    // 1.500 kg, Automotive Business) era barrada por não citar frota.
+    'veículo comercial', 'veículos comerciais', 'comercial leve', 'comerciais leves',
+    'comercial elétrico', 'comerciais elétricos', 'van de carga', 'vans de carga', 'carga útil',
   ];
+
+// Nomes de lugar que contêm termo genérico ("São José dos Campos" não é
+// "campo" de operação). Tirados do texto antes do filtro de frota.
+const LUGARES_COM_TERMO_GENERICO = /sao jose dos campos|campos dos goytacazes|campos do jordao|campos gerais|campo grande|campo mourao|campo largo|campo limpo|campo belo/g;
 
 function filtrarRelevancia(itens) {
   const palavrasChave = PALAVRAS_ICP;
@@ -217,6 +240,10 @@ function filtrarRelevancia(itens) {
     'caminhão', 'caminhao', 'caminhões', 'caminhoes', 'ônibus', 'onibus',
     'rodovia', 'rodovias', 'mineral', 'celulose',
   ];
+  // Começo de palavra, não palavra inteira: "rodovia" ainda casa "rodoviário"
+  // e "frota" casa "frotas" (palavra inteira derrubava 58 matérias boas do
+  // histórico), mas "obra" deixa de casar em "dobrar".
+  const termosGenericosRE = compilar(termosGenericos.map((t) => t + '*'));
   const contextoB2B = [
     'empresa', 'corporativ', 'empresarial', 'terceiriz', 'locaç', 'locac', 'gestor', 'gestão',
     'gestao', 'setor', 'mercado', 'indústria', 'veículos', 'veiculos', 'automóv', 'automovel', 'carro',
@@ -259,7 +286,11 @@ function filtrarRelevancia(itens) {
 
     let temGenericoComContexto = false;
     if (!temEspecifico) {
-      const temGenerico = termosGenericos.some((t) => textoNorm.includes(normalizar(t)));
+      // Termo genérico casa só no COMEÇO da palavra (nov/2026): no meio da
+      // palavra, "obra" casava em "dobrar" e "campo" em "São José dos Campos",
+      // e matéria de concessionária e de PDV em montadora entrava no pool.
+      const semLugares = textoNorm.replace(LUGARES_COM_TERMO_GENERICO, ' ');
+      const temGenerico = termosGenericosRE.some((re) => re.test(semLugares));
       if (temGenerico) {
         temGenericoComContexto = contextoB2B.some((ctx) => textoNorm.includes(normalizar(ctx)));
       }
@@ -758,4 +789,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 
 // Exportados só para teste local (scripts de ensaio que não gravam no banco).
-export { FEEDS, padronizar, calcularIdade, filtrarRelevanciaComSegmentos, deduplicar, filtrarConcorrentes, enriquecerELimitar, classificarSegmento, notaRelevancia, classificarTema };
+export { FEEDS, reescreverLink, padronizar, calcularIdade, filtrarRelevanciaComSegmentos, deduplicar, filtrarConcorrentes, enriquecerELimitar, classificarSegmento, notaRelevancia, classificarTema };

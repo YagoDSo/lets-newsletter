@@ -11,6 +11,17 @@ As tags de v1.0.0 a v2.0.0 foram criadas depois, em 09/11/2026. Por isso o `pack
 versões ainda diz 0.1.0 e as Releases delas aparecem publicadas nessa data. A data que vale é a do
 commit, que está abaixo.
 
+## v2.4.0 · 16/11/2026 · Automotive Business e filtro mais preciso
+
+- Fonte nova: Automotive Business (indústria automotiva e fornecedores). O site não tem feed no
+  endereço público; o RSS vem do WordPress interno e cada link é trocado pelo endereço público.
+- Filtro de frota: termo genérico ("obra", "campo", "rodovia"...) passou a casar só no começo da
+  palavra. Antes, "obra" casava em "dobrar" e "campo" em "São José dos Campos", e matéria de
+  concessionária e de demissão em montadora entrava no pool. Contra os 701 artigos do banco, saem
+  24, quase todos sem relação com frota.
+- Veículo de trabalho (veículo comercial, comercial leve e elétrico, van de carga, carga útil)
+  passou a contar como termo do público, para não barrar lançamento de utilitário.
+
 ## v2.3.0 · 16/11/2026 · Geração pela assinatura do Claude Code
 
 PR #22. O crédito de API virou gargalo, então curadoria e redação passaram para o computador do
